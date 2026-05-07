@@ -3,6 +3,7 @@ import Navbar from "./Navbar"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { Outlet } from "react-router-dom";
 import axios from 'axios'
+import {Circle, Clock, TrendingUp, Zap} from 'lucide-react'
 
 
 const Layout = ({user, onLogout}) => {
@@ -16,7 +17,11 @@ const Layout = ({user, onLogout}) => {
 
         try {
             const token = localStorage.getItem('token')
-            if(!token) throw new Error('No auth token found')
+
+            if (!token) {
+                if (typeof onLogout === 'function') onLogout(); 
+                return; 
+            }
             
             const {data} = await axios.get('http://localhost:4000/api/tasks/gp', {
                 headers: {Authorization: `Bearer ${token}`}
@@ -27,8 +32,12 @@ const Layout = ({user, onLogout}) => {
         }
         catch(err){
             console.error(err);
-            setError(err.message || "Could not load tasks.")
-            if(err.response?.status === 401) onLogout()
+
+            setError(err.response?.data?.message || err.message || "Could not load tasks.")
+            
+            if (err.response?.status === 401 && typeof onLogout === 'function') {
+                onLogout(); 
+            }
         }
         finally{
             setLoading(false)
@@ -50,7 +59,7 @@ const Layout = ({user, onLogout}) => {
     }, [tasks])
     
     // Statics Card
-    const StateCard = ({title, value, icon}) => (
+    const StatCard = ({title, value, icon}) => (
         <div className="p-2 sm:p-3 rounded-xl bg-white shadow-sm border border-purple-100 hover:shadow-md transition-all duration-300 hover:border-purple-100 group">
             <div className="flex items-center gap-2">
                 <div className="p-1.5 rounded-lg bg-linear-to-br from-fuchsia-500/10 to-purple-500/10 group-hover:from-fuchsia-500/20 group-hover:to-purple-500/20">
@@ -79,7 +88,7 @@ const Layout = ({user, onLogout}) => {
             <div className="bg-red-50 text-red-600 rounded-xl border border-red-100 max-w-md">
                 <p className="font-medium mb-2">Error Loading Tasks</p>
                 <p className="text-sm">{error}</p>
-                <button className="mt-4 py-2 px-4 bg-red-700 rounded-lg text-sm font-medium hover:bg-red-200 transition-colors">Try Again</button>
+                <button className="mt-4 py-2 px-4 bg-red-100 text-red-700 rounded-lg text-sm font-medium hover:bg-red-200 transition-colors">Try Again</button>
             </div>
         </div>
     )
@@ -93,6 +102,87 @@ const Layout = ({user, onLogout}) => {
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 sm:gap-6">
             <div className="xl:col-span-2 space-y-3 sm:space-y-4">
                 <Outlet context={{ tasks, refreshTasks: fetchTasks }}/>
+            </div>
+
+            <div className="xl:col-span-1 space-y-4 sm:space-y-6">
+                <div className="bg-white rounded-xl p-4 sm:p-5 shadow-sm border border-purple-100">
+                    <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4 text-gray-800 flex items-center gap-2">
+                        <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-purple-500"/>
+                        Task Statistics
+                    </h3>
+
+                    <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-4 sm:mb-6">
+                        <StatCard title='Total Tasks' value={stats.totalCount} icon={<Circle className="w-3.5 h-3.5 sm:h-4 text-purple-500"/>}/>
+
+                        <StatCard title='Completed' value={stats.completedTasks} icon={<Circle className="w-3.5 h-3.5 sm:h-4 text-green-500"/>}/>
+
+                        <StatCard title='Pending' value={stats.pendingCount} icon={<Circle className="w-3.5 h-3.5 sm:h-4 text-fuchsia-500"/>}/>
+
+                        <StatCard title='Completion Rate' value={`${stats.completionPercentage} % `}  icon={<Zap className="w-3.5 h-3.5 sm:h-4 text-purple-500"/>}/>
+                    </div>
+
+                    <hr className="my-3 sm:my-4 border-purple-100"/>
+
+                    <div className="space-y-2 sm:space-y-3">
+                        <div className="flex items-center justify-between text-gray-700">
+                            <span className="text-xs sm:text-sm font-medium flex items-center gap-1.5">
+                                <Circle className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-purple-500 fill-purple-500"/>
+                                Task Progress
+                            </span>
+                            <span className="text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 sm:px-2 rounded-full">
+                                {stats.completedTasks}/ {stats.totalCount}
+                            </span>
+                        </div>
+
+                        <div className="relative pt-1">
+                            <div className="flex gap-1.5 items-center">
+                                <div className="flex-1 h-2 sm:h-3 bg-purple-100 rounded-full overflow-hidden">
+                                    <div className="h-full bg-linear-to-r from-fu500 to-purple-600 transition-all duration-500" style={{width:`${stats.completionPercentage}%`}}>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="bg-white rounded-xl p-4 sm:p-5 shadow-sm border border-purple-100">
+                    <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4 text-gray-800 flex items-center gap-2">
+                        <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-purple-500"/>
+                        Recent Activity
+                    </h3>
+
+                    <div className="space-y-2 sm:space-y-3">
+                        {tasks.slice(0,3).map((task) => (
+                            <div key={task._id || task.id} className="flex items-center justify-between p-2 sm:p-3 hover:bg-purple-50/50 rounded-lg transition-colors duration-200 border border-transparent hover:border-purple-100">
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium text-gray-700 wrap-break-word whitespace-normal">
+                                        {task.title}
+                                    </p>
+                                    <p className="text-xs text-gray-500 mt-0.5">
+                                        {task.createdAt ? new Date(task.createdAt).toLocaleDateString() : "No date"}
+                                    </p>
+                                </div>
+                                <span className={`px-2 py-1 text-xs rounded-full shrink-0 ml-2 ${task.completed ? 'bg-green-100 text-gray-700' : 'bg-fuchsia-100 text-fuchsia-700'}`}>
+                                    {task.completed ? "Done" : "Pending"}
+                                </span>
+                            </div> 
+                        ))}
+
+                        {tasks.length === 0 && (
+                            <div>
+                                <div className="w-12 h-12 sm:w-16 sm:h-16 mx-auto sm:mb-4 rounded-full bg-purple-100 flex items-center justify-center">
+                                    <Clock className="w-6 h-6 sm:w-8 sm:h-8 text-purple-500"/>
+                                </div>
+                                <p className="text-sm text-gray-500">
+                                    No recent activity
+                                </p>
+                                <p className="text-xs text-gray-400 mt-1">
+                                    Tasks will appear here.
+                                </p>
+                            </div>
+                        )}
+                    </div>
+                </div>
             </div>
         </div>
       </div>
